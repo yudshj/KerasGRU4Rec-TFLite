@@ -54,19 +54,16 @@ class Model(tf.Module):
         diag = tf.linalg.diag(tf.cast(mask, tf.float32))
         self.last_state = tf.matmul(diag, self.last_state)
         target = tf.cast(target, tf.float32)
-        loss = self.model.train_on_batch([feat, self.last_state], [target, self.last_state])
-        _, self.last_state = self.model.predict_on_batch([feat, self.last_state])
-        return loss
-        # with tf.GradientTape() as tape:
-        #     prediction, self.last_state = self.model([feat, self.last_state])
-        #     loss = self._LOSS_FN(prediction, target)
-        # gradients = tape.gradient(loss, self.model.trainable_variables)
-        # self._OPTIM.apply_gradients(zip([gradients], [self.model.trainable_variables]))
-        # result = {"loss": loss}
-        # for grad in gradients:
-        #     result[grad.name] = grad
-        #     print(grad.name, grad.shape)
-        # return result
+        with tf.GradientTape() as tape:
+            prediction, self.last_state = self.model([feat, self.last_state])
+            loss = self._LOSS_FN(prediction, target)
+        gradients = tape.gradient(loss, self.model.trainable_variables)
+        self._OPTIM.apply_gradients(zip([gradients], [self.model.trainable_variables]))
+        result = {"loss": loss}
+        for grad in gradients:
+            result[grad.name] = grad
+            print(grad.name, grad.shape)
+        return result
 
     @tf.function(input_signature=[
         tf.TensorSpec([batch_size, 1, train_n_items], tf.int32),

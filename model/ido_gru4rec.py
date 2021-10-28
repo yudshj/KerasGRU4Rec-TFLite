@@ -248,7 +248,7 @@ def train_model(model, args):
                 target_oh = to_categorical(target, num_classes=loader.n_items)
 
                 # loss, last_state = model_to_train.train_on_batch([input_oh, last_state], [target_oh, last_state])
-                _, last_state = model_to_train.predict_on_batch([input_oh, last_state])
+                # _, last_state = model_to_train.predict_on_batch([input_oh, last_state])
                 
                 with tf.GradientTape() as tape:
                     prediction, state = model_to_train([input_oh, last_state], training=True)
