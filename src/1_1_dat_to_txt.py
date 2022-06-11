@@ -1,9 +1,12 @@
 import numpy as np
 import pandas as pd
 import datetime as dt
+import pathlib
 
 PATH_TO_ORIGINAL_DATA = '../dataset/yoochoose-data/'
 PATH_TO_PROCESSED_DATA = '../dataset/rsc15/'
+
+pathlib.Path(PATH_TO_PROCESSED_DATA).mkdir(parents=True, exist_ok=True)
 
 data = pd.read_csv(PATH_TO_ORIGINAL_DATA + 'yoochoose-clicks.dat', sep=',', header=None, usecols=[0,1,2], dtype={0:np.int32, 1:str, 2:np.int64})
 data.columns = ['SessionId', 'TimeStr', 'ItemId']
