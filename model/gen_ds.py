@@ -157,7 +157,7 @@ def create_model(args):
     drop2 = Dropout(0.25)(gru)
     predictions = Dense(args.train_n_items, activation='softmax')(drop2)
     model = Model(inputs=inputs, outputs=[predictions])
-    opt = tf.keras.optimizers.Adam(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=None, decay=0.0, amsgrad=False)
+    opt = tf.keras.optimizers.Adam(learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=None, decay=0.0, amsgrad=False)
     model.compile(loss=categorical_crossentropy, optimizer=opt)
     model.summary()
 
@@ -217,40 +217,26 @@ def train_model(model, args):
     model_to_train = model
     batch_size = args.batch_size
 
-    for epoch in range(1, args.epochs):
-        with tqdm(total=args.train_samples_qty) as pbar:
-            loader = SessionDataLoader(train_dataset, batch_size=batch_size)
-            for feat, target, mask in loader:
-
-                gru_layer = model_to_train.get_layer(name="GRU")
-                hidden_states = gru_layer.states[0].numpy()
-                for elt in mask:
-                    hidden_states[elt, :] = 0
-                gru_layer.reset_states(states=hidden_states)
-
-                input_oh = to_categorical(feat, num_classes=loader.n_items)
-                input_oh = np.expand_dims(input_oh, axis=1)
-
-                target_oh = to_categorical(target, num_classes=loader.n_items)
-
-                tr_loss = model_to_train.train_on_batch(input_oh, target_oh)
-
-                pbar.set_description("Epoch {0}. Loss: {1:.5f}".format(epoch, tr_loss))
-                pbar.update(loader.done_sessions_counter)
-
-        if args.save_weights:
-            print("Saving weights...")
-            model_to_train.save('./GRU4REC_{}.h5'.format(epoch))
-
-        if args.eval_all_epochs:
-            (rec, rec_k), (mrr, mrr_k) = get_metrics(model_to_train, args, train_dataset.itemmap)
-            print("\t - Recall@{} epoch {}: {:5f}".format(rec_k, epoch, rec))
-            print("\t - MRR@{}    epoch {}: {:5f}\n".format(mrr_k, epoch, mrr))
-
-    if not args.eval_all_epochs:
-        (rec, rec_k), (mrr, mrr_k) = get_metrics(model_to_train, args, train_dataset.itemmap)
-        print("\t - Recall@{} epoch {}: {:5f}".format(rec_k, args.epochs, rec))
-        print("\t - MRR@{}    epoch {}: {:5f}\n".format(mrr_k, args.epochs, mrr))
+    loader = SessionDataLoader(train_dataset, batch_size=batch_size)
+    feats = []
+    targets = []
+    masks = []
+    for feat, target, mask in loader:
+        feats.append(feat)
+        targets.append(target)
+        masks.append(mask)
+    # # masks = [np.pad(mask, (0, batch_size - len(mask)), 'constant', constant_values=-1) for mask in masks]
+    masks = [tf.reduce_max(tf.one_hot(mask, args.batch_size, dtype=tf.int32), axis=0) if len(mask) > 0 else tf.zeros(args.batch_size, dtype=tf.int32) for mask in masks]
+    feats_arr = np.array(feats, dtype=np.int32)
+    targets_arr = np.array(targets, dtype=np.int32)
+    masks_arr = np.array(masks, dtype=np.int32)
+    masks_arr = 1 - masks_arr
+    np.save(f'feats_bs{batch_size}.npy', feats_arr)
+    np.save(f'targets_bs{batch_size}.npy', targets_arr)
+    np.save(f'masks_bs{batch_size}.npy', masks_arr)
+    import IPython
+    IPython.embed()
+    exit()
 
 
 if __name__ == '__main__':

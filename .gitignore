@@ -4,8 +4,8 @@ venv/
 tfnightly/
 
 dataset/
-model/
-preprocess/
+model/*
+preprocess/*
 playground/
 
 !preprocess/*.py
