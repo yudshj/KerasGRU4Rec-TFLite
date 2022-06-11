@@ -24,7 +24,9 @@ train_samples_qty = 7953886
 
 
 class Model(tf.Module):
-
+    """!
+    模型
+    """
     def __init__(self):
         inputs = Input(shape=(1, train_n_items), batch_size=batch_size)
         init_states = Input(shape=(hidden_units,), batch_size=batch_size)
@@ -40,7 +42,7 @@ class Model(tf.Module):
             optimizer=self._OPTIM,
         )
 
-    # The `train` function takes a batch of input images and labels.
+    # “train”功能接收一批输入图像和标签
     @tf.function(input_signature=[
         tf.TensorSpec([batch_size], tf.int32),
         tf.TensorSpec([batch_size], tf.int32),
@@ -48,6 +50,13 @@ class Model(tf.Module):
         # tf.TensorSpec([batch_size], tf.int32),
     ])
     def train(self, feat, target, initstate): # mask):
+        """!
+        训练
+        @param feat 特征向量
+        @param target 目标向量
+        @param initstate 初始状态
+        @return 损失值和状态
+        """
         # diag = tf.linalg.diag(tf.cast(mask, tf.float32))
         # self.initstate = tf.matmul(diag, self.initstate)
         input_oh = tf.one_hot(feat, depth=train_n_items)
@@ -72,6 +81,12 @@ class Model(tf.Module):
         tf.TensorSpec([batch_size, hidden_units], tf.float32),
     ])
     def infer(self, feat, initstate):
+        '''!
+        推断
+        @param feat 特征向量
+        @param initstate 初始状态
+        @return 产出和状态
+        '''
         input_oh = tf.one_hot(feat, depth=train_n_items)
         input_oh = tf.expand_dims(input_oh, axis=1)
         input_oh = tf.cast(input_oh, tf.float32)
@@ -83,6 +98,11 @@ class Model(tf.Module):
 
     @tf.function(input_signature=[tf.TensorSpec(shape=[], dtype=tf.string)])
     def save(self, checkpoint_path):
+        '''!
+        保存检查点
+        @param checkpoint_path 保存路径
+        @return 保存路径
+        '''
         tensor_names = [weight.name for weight in self.model.weights]
         tensors_to_save = [weight.read_value()
                            for weight in self.model.weights]
@@ -95,6 +115,11 @@ class Model(tf.Module):
 
     @tf.function(input_signature=[tf.TensorSpec(shape=[], dtype=tf.string)])
     def restore(self, checkpoint_path):
+        '''!
+        恢复训练
+        @param checkpoint_path 保存路径
+        @return 张量
+        '''
         restored_tensors = {}
         for var in self.model.weights:
             restored = tf.raw_ops.Restore(

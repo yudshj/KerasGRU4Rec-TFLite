@@ -24,11 +24,11 @@ class SessionDataset:
        
         @param    path csv文件的路径
         @param    sep csv分隔符 
-        @param    session_key 会话域名
-        @param    item_key 对象域名
-        @param    time_key  时间域名
+        @param    session_key 会话字段名称
+        @param    item_key 对象字段名称
+        @param    time_key  时间字段名称
         @param    n_samples 使用样本数，-1表示使用完整数据集
-        @param    itemmap 对象ID值和指数值的映射关系
+        @param    itemmap 对象ID值和索引的映射关系
         @param    time_sort 是否按时间排序会话
         """
         self.df = data
@@ -76,7 +76,7 @@ class SessionDataset:
     def add_item_indices(self, itemmap=None):
         """!
         @brief 将对象索引列item_idx加入df中
-        @param itemmap 对象ID值和指数值的映射关系
+        @param itemmap 对象ID值和索引的映射关系
        
         """
         if itemmap is None:
@@ -89,18 +89,19 @@ class SessionDataset:
         self.itemmap = itemmap
         self.df = pd.merge(self.df, self.itemmap,
                            on=self.item_key, how='inner')
-    """!
-        @brief 去重
 
-    """
     @property
     def items(self):
+        """!
+        @brief 去重
+
+        """
         return self.itemmap.ItemId.unique()
 
 
 class SessionDataLoader:
     """!
-    创建小切片的平行会话
+    创建小切片的并行会话
     """
 
     def __init__(self, dataset, batch_size=50):
@@ -114,18 +115,12 @@ class SessionDataLoader:
         self.done_sessions_counter = 0
 
     def __iter__(self):
-        """ Returns the iterator for producing session-parallel training mini-batches.
-        Yields:
-            input (B,):  Item indices that will be encoded as one-hot vectors later.
-            target (B,): a Variable that stores the target item indices
-            masks: Numpy array indicating the positions of the sessions to be terminated
-        """
+       
         """! 
-        @return 平行训练切片的迭代器
-        Yields:
-            input (B,):  Item indices that will be encoded as one-hot vectors later.
-            target (B,): a Variable that stores the target item indices
-            masks: Numpy array indicating the positions of the sessions to be terminated
+        @return 并行训练切片的迭代器
+            input (B,): 稍后将编码为一个热向量的项目索引
+            target (B,): 存储目标项索引的变量
+            masks: 指示要终止的会话位置的Numpy数组
         """
         df = self.dataset.df
         session_key = 'SessionId'
@@ -171,6 +166,9 @@ class SessionDataLoader:
 
 
 def work(args):
+    """!
+    模型训练及保存
+    """
     train_dataset = SessionDataset(args.train_data)
     batch_size = args.batch_size
 
