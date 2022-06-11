@@ -2,6 +2,7 @@ import argparse
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
+import pathlib
 
 import tensorflow as tf
 
@@ -188,13 +189,13 @@ def work(args):
     targets_arr = np.array(targets, dtype=np.int32)
     masks_arr = np.array(masks, dtype=np.int32)
     masks_arr = 1 - masks_arr
-    # np.save(f'feats_bs{batch_size}.npy', feats_arr)
-    # np.save(f'targets_bs{batch_size}.npy', targets_arr)
-    # np.save(f'masks_bs{batch_size}.npy', masks_arr)
-    np.savetxt(f'feats_bs{batch_size}.txt', feats_arr, delimiter=',', fmt='%d')
-    np.savetxt(f'targets_bs{batch_size}.txt',
-               targets_arr, delimiter=',', fmt='%d')
-    np.savetxt(f'masks_bs{batch_size}.txt', masks_arr, delimiter=',', fmt='%d')
+    np.save(f'feats_bs{batch_size}.npy', feats_arr)
+    np.save(f'targets_bs{batch_size}.npy', targets_arr)
+    np.save(f'masks_bs{batch_size}.npy', masks_arr)
+    pathlib.Path('../dataset/final/').mkdir(parents=True, exist_ok=True)
+    np.savetxt(f'../dataset/final/feats_bs{batch_size}.txt', feats_arr, delimiter=',', fmt='%d')
+    np.savetxt(f'../dataset/final/targets_bs{batch_size}.txt', targets_arr, delimiter=',', fmt='%d')
+    np.savetxt(f'../dataset/final/masks_bs{batch_size}.txt', masks_arr, delimiter=',', fmt='%d')
 
 
 if __name__ == '__main__':

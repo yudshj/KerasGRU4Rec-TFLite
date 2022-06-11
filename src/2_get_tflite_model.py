@@ -8,6 +8,7 @@ import tensorflow as tf
 from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.callbacks import ModelCheckpoint
 from tensorflow.keras.layers import Input, Dense, Dropout, GRU
+import shutil
 
 emb_size = 50
 hidden_units = 100
@@ -136,3 +137,4 @@ if __name__ == '__main__':
     tflite_model = converter.convert()
     with open("saved_model.tflite", "wb") as f:
         f.write(tflite_model)
+    shutil.rmtree(SAVED_MODEL_DIR)

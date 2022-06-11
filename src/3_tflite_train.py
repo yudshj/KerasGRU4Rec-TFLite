@@ -1,22 +1,23 @@
 
-import IPython
 import numpy as np
 import tensorflow as tf
 from tqdm import tqdm
 
+TFLITE_MODEL_PATH = 'saved_model.tflite'
 
 emb_size = 50
 hidden_units = 100
 size = emb_size
 batch_size = 512
 train_n_items = 37484
-rsc15_dataset = np.load('feats_targets_masks_bs512.npy', allow_pickle=False)
-feats = rsc15_dataset[0]
-targets = rsc15_dataset[1]
-masks = rsc15_dataset[2]
-total_num = rsc15_dataset.shape[1]
+feats = np.load('feats_bs512.npy')
+targets = np.load('targets_bs512.npy')
+masks = np.load('masks_bs512.npy')
+total_num = feats.shape[0]
 
-with open('saved_model.tflite', 'rb') as f:
+assert feats.shape[0] == targets.shape[0] == masks.shape[0]
+
+with open(TFLITE_MODEL_PATH, 'rb') as f:
     tflite_model = f.read()
 print(len(tflite_model))
 interpreter = tf.lite.Interpreter(model_content=tflite_model)
