@@ -9,8 +9,8 @@ import numpy as np
 import pandas as pd
 import datetime as dt
 
-PATH_TO_ORIGINAL_DATA = '/path/to/clicks/dat/file/'
-PATH_TO_PROCESSED_DATA = '/path/to/store/processed/data/'
+PATH_TO_ORIGINAL_DATA = '/home/yudonghan/storage/KerasGRU4Rec/dataset/yoochoose-data/'
+PATH_TO_PROCESSED_DATA = '/home/yudonghan/storage/KerasGRU4Rec/dataset/rsc15/'
 
 data = pd.read_csv(PATH_TO_ORIGINAL_DATA + 'yoochoose-clicks.dat', sep=',', header=None, usecols=[0,1,2], dtype={0:np.int32, 1:str, 2:np.int64})
 data.columns = ['SessionId', 'TimeStr', 'ItemId']

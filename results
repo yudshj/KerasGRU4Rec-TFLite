@@ -1,0 +1,3 @@
+EPOCH 7:
+- Recall@20 epoch -1: 0.713924
+- MRR@20    epoch -1: 0.309100

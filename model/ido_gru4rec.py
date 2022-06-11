@@ -160,7 +160,11 @@ def create_model(args):
     predictions = Dense(args.train_n_items, activation='softmax')(drop2)
     model = Model(inputs=[inputs, init_states], outputs=[predictions, gru_states])
     opt = tf.keras.optimizers.Adam(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=None, decay=0.0, amsgrad=False)
-    model.compile(loss=[categorical_crossentropy, lambda y_true, y_pred: 0.0], optimizer=opt, loss_weights=[1., 0.])
+    model.compile(
+        optimizer=opt,
+        # loss=[categorical_crossentropy, lambda y_true, y_pred: 0.0],
+        # loss_weights=[1., 0.],
+    )
     # model.metrics_tensors.append(model.output[1])
     # model.metrics_names.append('GRU_states')
     model.summary()
@@ -185,19 +189,19 @@ def get_metrics(model, args, train_generator_map, recall_k=20, mrr_k=20):
     last_state = tf.zeros((args.batch_size, hidden_units))
     for feat, label, mask in test_generator:
         if len(mask) == 0:
-            mask = tf.ones(shape=(args.batch_size,), dtype=tf.float32)
+            mask = tf.eye(args.batch_size, dtype=tf.float32)
         else:
             mask = 1 - tf.reduce_max(tf.one_hot(mask, args.batch_size, dtype=tf.int32), axis=0)
-
-        mask = tf.linalg.diag(mask)
-        mask = tf.cast(mask, tf.float32)
+            mask = tf.linalg.diag(mask)
+            mask = tf.cast(mask, tf.float32)
         
         last_state = tf.matmul(mask, last_state)
         target_oh = to_categorical(label, num_classes=args.train_n_items)
         input_oh  = to_categorical(feat,  num_classes=args.train_n_items)
         input_oh = np.expand_dims(input_oh, axis=1)
 
-        pred, last_state = model.predict_on_batch([input_oh, last_state])
+        pred, last_state = model([input_oh, last_state], training=False)
+        pred = pred.numpy()
 
         for row_idx in range(feat.shape[0]):
             pred_row = pred[row_idx]
@@ -225,6 +229,7 @@ def train_model(model, args):
     model_to_train = model
     batch_size = args.batch_size
     hidden_units = 100
+    # opt = tf.keras.optimizers.Adam(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=None, decay=0.0, amsgrad=False)
 
     for epoch in range(1, args.epochs):
         with tqdm(total=args.train_samples_qty) as pbar:
@@ -233,12 +238,11 @@ def train_model(model, args):
             for feat, target, mask in loader:
 
                 if len(mask) == 0:
-                    mask = tf.ones(shape=(batch_size,), dtype=tf.float32)
+                    mask = tf.eye(batch_size, dtype=tf.float32)
                 else:
                     mask = 1 - tf.reduce_max(tf.one_hot(mask, args.batch_size, dtype=tf.int32), axis=0)
-
-                mask = tf.linalg.diag(mask)
-                mask = tf.cast(mask, tf.float32)
+                    mask = tf.linalg.diag(mask)
+                    mask = tf.cast(mask, tf.float32)
                 
                 last_state = tf.matmul(mask, last_state)
 
@@ -250,16 +254,21 @@ def train_model(model, args):
                 # loss, last_state = model_to_train.train_on_batch([input_oh, last_state], [target_oh, last_state])
                 # _, last_state = model_to_train.predict_on_batch([input_oh, last_state])
                 
+                # last_state = tf.zeros_like(last_state)
+                # https://github.com/keras-team/keras/blob/3a33d53ea4aca312c5ad650b4883d9bac608a32e/keras/engine/training.py#L755
                 with tf.GradientTape() as tape:
-                    prediction, state = model_to_train([input_oh, last_state], training=True)
-                    loss = categorical_crossentropy(prediction, target_oh)
+                    prediction, last_state = model_to_train([input_oh, last_state], training=True)
+                    loss = tf.reduce_mean(categorical_crossentropy(target_oh, prediction))
 
-                last_state = state
-                gradients = tape.gradient(loss, model_to_train.trainable_weights)
-                model_to_train.optimizer.apply_gradients(
-                    zip(gradients, model_to_train.trainable_weights))
+                trainable_variables = model_to_train.trainable_variables
+                gradients = tape.gradient(loss, trainable_variables)
+                grads_and_vars = zip(gradients, trainable_variables)
+                # opt.apply_gradients(grads_and_vars)
+                model_to_train.optimizer.apply_gradients(grads_and_vars)
 
-                pbar.set_description("Epoch {0}. Loss: {1}".format(epoch, tf.reduce_mean(loss)))
+                # IPython.embed()
+
+                pbar.set_description("Epoch {0}. Loss: {1:.5f}.".format(epoch, loss))
                 pbar.update(loader.done_sessions_counter)
 
         if args.save_weights:

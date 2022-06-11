@@ -1,9 +1,8 @@
 # https://www.tensorflow.org/lite/examples/on_device_training/overview#train_the_model
 
 import argparse
-import numpy as np
-import pandas as pd
-from tqdm import tqdm
+import IPython
+from keras.backend import categorical_crossentropy
 
 import tensorflow as tf
 from tensorflow.keras.utils import to_categorical
@@ -35,42 +34,47 @@ class Model(tf.Module):
 
         self.model = tf.keras.Model(inputs=[inputs, init_states], outputs=[predictions, gru_states])
         self._OPTIM = tf.keras.optimizers.Adam(learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=None, decay=0.0, amsgrad=False)
-        self._LOSS_FN = tf.keras.losses.CategoricalCrossentropy(from_logits=False)
 
         self.model.compile(
             optimizer=self._OPTIM,
-            loss=self._LOSS_FN,
-            metrics=['accuracy'],
         )
-        self.last_state = tf.zeros((batch_size, hidden_units))
 
     # The `train` function takes a batch of input images and labels.
     @tf.function(input_signature=[
-        tf.TensorSpec([batch_size, 1, train_n_items], tf.int32),
-        tf.TensorSpec([batch_size, train_n_items], tf.int32),
         tf.TensorSpec([batch_size], tf.int32),
+        tf.TensorSpec([batch_size], tf.int32),
+        tf.TensorSpec([batch_size, hidden_units], tf.float32),
+        # tf.TensorSpec([batch_size], tf.int32),
     ])
-    def train(self, feat, target, mask):
-        diag = tf.linalg.diag(tf.cast(mask, tf.float32))
-        self.last_state = tf.matmul(diag, self.last_state)
-        target = tf.cast(target, tf.float32)
+    def train(self, feat, target, initstate): # mask):
+        # diag = tf.linalg.diag(tf.cast(mask, tf.float32))
+        # self.initstate = tf.matmul(diag, self.initstate)
+        input_oh = tf.one_hot(feat, depth=train_n_items)
+        input_oh = tf.expand_dims(input_oh, axis=1)
+        input_oh = tf.cast(input_oh, tf.float32)
+
+        target_oh = tf.one_hot(target, depth=train_n_items)
+        target_oh = tf.cast(target_oh, tf.float32)
+
         with tf.GradientTape() as tape:
-            prediction, self.last_state = self.model([feat, self.last_state])
-            loss = self._LOSS_FN(prediction, target)
+            prediction, state = self.model([input_oh, initstate])
+            loss = tf.reduce_mean(categorical_crossentropy(target_oh, prediction))
         gradients = tape.gradient(loss, self.model.trainable_variables)
-        self._OPTIM.apply_gradients(zip([gradients], [self.model.trainable_variables]))
-        result = {"loss": loss}
-        for grad in gradients:
-            result[grad.name] = grad
-            print(grad.name, grad.shape)
-        return result
+        self.model.optimizer.apply_gradients(zip(gradients, self.model.trainable_variables))
+        return {
+            "loss": loss,
+            "state": state,
+        }
 
     @tf.function(input_signature=[
-        tf.TensorSpec([batch_size, 1, train_n_items], tf.int32),
-        tf.TensorSpec([batch_size, hidden_units], tf.int32),
+        tf.TensorSpec([batch_size], tf.int32),
+        tf.TensorSpec([batch_size, hidden_units], tf.float32),
     ])
-    def infer(self, feat, init_state):
-        output, state = self.model([feat, init_state])
+    def infer(self, feat, initstate):
+        input_oh = tf.one_hot(feat, depth=train_n_items)
+        input_oh = tf.expand_dims(input_oh, axis=1)
+        input_oh = tf.cast(input_oh, tf.float32)
+        output, state = self.model([input_oh, initstate])
         return {
             "output": output,
             "state": state,
@@ -104,19 +108,23 @@ if __name__ == '__main__':
     # Export the TensorFlow model to the saved model
     SAVED_MODEL_DIR = "saved_model"
     m = Model()
-    tf.saved_model.save(
-        m,
-        SAVED_MODEL_DIR,
-        signatures={
-            'train':
-                m.train.get_concrete_function(),
-            'infer':
-                m.infer.get_concrete_function(),
-            'save':
-                m.save.get_concrete_function(),
-            'restore':
-                m.restore.get_concrete_function(),
-        })
+    try:
+        tf.saved_model.save(
+            m,
+            SAVED_MODEL_DIR,
+            signatures={
+                'train':
+                    m.train.get_concrete_function(),
+                'infer':
+                    m.infer.get_concrete_function(),
+                'save':
+                    m.save.get_concrete_function(),
+                'restore':
+                    m.restore.get_concrete_function(),
+            })
+    except Exception as e:
+        print(e)
+        IPython.embed()
 
     # Convert the model
     converter = tf.lite.TFLiteConverter.from_saved_model(SAVED_MODEL_DIR)
@@ -126,3 +134,5 @@ if __name__ == '__main__':
     ]
     converter.experimental_enable_resource_variables = True
     tflite_model = converter.convert()
+    with open("saved_model.tflite", "wb") as f:
+        f.write(tflite_model)

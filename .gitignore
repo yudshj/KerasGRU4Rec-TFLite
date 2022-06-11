@@ -1,2 +1,12 @@
 .DS_Store
-/.idea/
+.idea/
+venv/
+tfnightly/
+
+dataset/
+model/
+preprocess/
+playground/
+
+!preprocess/*.py
+!model/*.py
