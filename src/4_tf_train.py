@@ -24,7 +24,7 @@ test_samples_qty = 15325
 train_samples_qty = 7953886
 
 emb_size = 50
-hidden_units = 100
+hidden_units = 84
 size = emb_size
 batch_size = 512
 train_n_items = 37484
@@ -145,6 +145,7 @@ class Model(tf.Module):
             "loss": loss,
             "recall": recall,
             "mrr": mrr,
+            "state": state,
         }
 
 if __name__ == '__main__':
@@ -158,14 +159,14 @@ if __name__ == '__main__':
 
     assert feats.shape[0] == targets.shape[0] == masks.shape[0]
 
-    last_state = tf.zeros((batch_size, hidden_units), dtype=tf.float32)
 
     for epoch in range(epochs):
+        last_state = tf.zeros((batch_size, hidden_units), dtype=tf.float32)
         with tqdm(total=total_num) as pbar:
             for i, (feat, mask, target) in enumerate(zip(feats, masks, targets)):
-                if i % 1000 == 0:
+                if i % 5000 == 0:
                     result = m.eval(feat, target, last_state, top_k=20)
-                    result = {k: v.numpy() for k, v in result.items()}
+                    result = {k: v.numpy() for k, v in result.items() if k != "state"}
                     print(f"[ {epoch} epochs, {i} steps ] {result}")
 
                 mask = tf.cast(mask, tf.float32)
@@ -182,9 +183,5 @@ if __name__ == '__main__':
                 pbar.set_description(f'Epoch: {i} Loss: {loss:.5f}')
                 pbar.update()
         m.model.save_weights(f'weights/{epoch:03d}.h5')
-        with tqdm(total=total_num) as pbar:
-            results = [m.eval(feat, target, last_state, top_k=20) for feat, mask, target in zip(feats, masks, targets)]
-            recall = np.mean([result['recall'].numpy() for result in results])
-            mrr = np.mean([result['mrr'].numpy() for result in results])
-            loss = np.mean([result['loss'].numpy() for result in results])
-            print(f"[ EVALUATE {epoch} ] recall: {recall:.5f}, mrr: {mrr:.5f}, loss: {loss:.5f}")
+        last_state = tf.zeros((batch_size, hidden_units), dtype=tf.float32)
+

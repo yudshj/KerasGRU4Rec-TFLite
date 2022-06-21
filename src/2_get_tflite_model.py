@@ -12,7 +12,7 @@ from tensorflow.keras.layers import Input, Dense, Dropout, GRU
 import shutil
 
 emb_size = 50
-hidden_units = 100
+hidden_units = 84
 size = emb_size
 batch_size = 512
 train_n_items = 37484
@@ -184,10 +184,10 @@ if __name__ == '__main__':
                     m.train.get_concrete_function(),
                 'infer':
                     m.infer.get_concrete_function(),
-                'save':
-                    m.save.get_concrete_function(),
-                'restore':
-                    m.restore.get_concrete_function(),
+                # 'save':
+                #     m.save.get_concrete_function(),
+                # 'restore':
+                #     m.restore.get_concrete_function(),
                 'eval':
                     m.eval.get_concrete_function(),
             })
