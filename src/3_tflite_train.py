@@ -2,6 +2,7 @@
 import numpy as np
 import tensorflow as tf
 from tqdm import tqdm
+import gzip
 
 TFLITE_MODEL_PATH = 'saved_model.tflite'
 
@@ -18,7 +19,7 @@ total_num = feats.shape[0]
 assert feats.shape[0] == targets.shape[0] == masks.shape[0]
 
 with open(TFLITE_MODEL_PATH, 'rb') as f:
-    tflite_model = f.read()
+    tflite_model = gzip.decompress(f.read())
 print(len(tflite_model))
 interpreter = tf.lite.Interpreter(model_content=tflite_model)
 interpreter.allocate_tensors()
@@ -27,6 +28,7 @@ train = interpreter.get_signature_runner("train")
 infer = interpreter.get_signature_runner("infer")
 save = interpreter.get_signature_runner("save")
 restore = interpreter.get_signature_runner("restore")
+evaluate = interpreter.get_signature_runner("eval")
 
 last_state = tf.zeros((batch_size, hidden_units), dtype=tf.float32)
 

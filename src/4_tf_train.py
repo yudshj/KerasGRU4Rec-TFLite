@@ -1,15 +1,15 @@
-# https://www.tensorflow.org/lite/examples/on_device_training/overview#train_the_model
-
 import argparse
-import gzip
-import IPython
-from keras.backend import categorical_crossentropy
-
-import tensorflow as tf
-from tensorflow.keras.utils import to_categorical
-from tensorflow.keras.callbacks import ModelCheckpoint
-from tensorflow.keras.layers import Input, Dense, Dropout, GRU
 import shutil
+
+import IPython
+import numpy as np
+import tensorflow as tf
+import tensorflow_ranking as tfr
+from keras.backend import categorical_crossentropy
+from tensorflow.keras.callbacks import ModelCheckpoint
+from tensorflow.keras.layers import GRU, Dense, Dropout, Input
+from tensorflow.keras.utils import to_categorical
+from tqdm import tqdm
 
 emb_size = 50
 hidden_units = 100
@@ -22,6 +22,13 @@ train_n_items = 37484
 # n_items = 37484
 test_samples_qty = 15325
 train_samples_qty = 7953886
+
+emb_size = 50
+hidden_units = 100
+size = emb_size
+batch_size = 512
+train_n_items = 37484
+epochs = 100
 
 
 class Model(tf.Module):
@@ -140,40 +147,44 @@ class Model(tf.Module):
             "mrr": mrr,
         }
 
-
 if __name__ == '__main__':
     # Export the TensorFlow model to the saved model
-    SAVED_MODEL_DIR = "saved_model"
     m = Model()
-    try:
-        tf.saved_model.save(
-            m,
-            SAVED_MODEL_DIR,
-            signatures={
-                'train':
-                    m.train.get_concrete_function(),
-                'infer':
-                    m.infer.get_concrete_function(),
-                'save':
-                    m.save.get_concrete_function(),
-                'restore':
-                    m.restore.get_concrete_function(),
-                'eval':
-                    m.eval.get_concrete_function(),
-            })
-    except Exception as e:
-        print(e)
-        IPython.embed()
 
-    # Convert the model
-    converter = tf.lite.TFLiteConverter.from_saved_model(SAVED_MODEL_DIR)
-    converter.target_spec.supported_ops = [
-        tf.lite.OpsSet.TFLITE_BUILTINS,  # enable TensorFlow Lite ops.
-        tf.lite.OpsSet.SELECT_TF_OPS     # enable TensorFlow ops.
-    ]
-    converter.experimental_enable_resource_variables = True
-    tflite_model = converter.convert()
-    tflite_model_gzip = gzip.compress(tflite_model)
-    with open("saved_model.tflite", "wb") as f:
-        f.write(tflite_model_gzip)
-    shutil.rmtree(SAVED_MODEL_DIR)
+    feats = np.load('feats_bs512.npy')
+    targets = np.load('targets_bs512.npy')
+    masks = np.load('masks_bs512.npy')
+    total_num = feats.shape[0]
+
+    assert feats.shape[0] == targets.shape[0] == masks.shape[0]
+
+    last_state = tf.zeros((batch_size, hidden_units), dtype=tf.float32)
+
+    for epoch in range(epochs):
+        with tqdm(total=total_num) as pbar:
+            for i, (feat, mask, target) in enumerate(zip(feats, masks, targets)):
+                if i % 1000 == 0:
+                    result = m.eval(feat, target, last_state, top_k=20)
+                    result = {k: v.numpy() for k, v in result.items()}
+                    print(f"[ {epoch} epochs, {i} steps ] {result}")
+
+                mask = tf.cast(mask, tf.float32)
+                diag = tf.linalg.diag(mask)
+                last_state = tf.matmul(diag, last_state)
+                result = m.train(
+                    feat=feat,
+                    target=target,
+                    initstate=last_state,
+                )
+                loss = result['loss']
+                last_state = result['state']
+
+                pbar.set_description(f'Epoch: {i} Loss: {loss:.5f}')
+                pbar.update()
+        m.model.save_weights(f'weights/{epoch:03d}.h5')
+        with tqdm(total=total_num) as pbar:
+            results = [m.eval(feat, target, last_state, top_k=20) for feat, mask, target in zip(feats, masks, targets)]
+            recall = np.mean([result['recall'].numpy() for result in results])
+            mrr = np.mean([result['mrr'].numpy() for result in results])
+            loss = np.mean([result['loss'].numpy() for result in results])
+            print(f"[ EVALUATE {epoch} ] recall: {recall:.5f}, mrr: {mrr:.5f}, loss: {loss:.5f}")

@@ -2,3 +2,4 @@
 venv
 *.npy
 dataset/
+src/weights
