@@ -37,10 +37,10 @@ dataset
 dataset
 ├── recsys-challenge-2015.zip
 ├── rsc15
-│   ├── rsc15_test.txt
-│   ├── rsc15_train_full.txt
-│   ├── rsc15_train_tr.txt
-│   └── rsc15_train_valid.txt
+│   ├── rsc15_test.txt
+│   ├── rsc15_train_full.txt
+│   ├── rsc15_train_tr.txt
+│   └── rsc15_train_valid.txt
 └── yoochoose-data
     ├── dataset-README.txt
     ├── yoochoose-buys.dat
@@ -86,22 +86,22 @@ To enable them in other operations, rebuild TensorFlow with the appropriate comp
 ```
 KerasGRU4Rec-TFLite
 ├── dataset
-│   ├── final
-│   │   ├── feats_bs512.txt
-│   │   ├── masks_bs512.txt
-│   │   └── targets_bs512.txt
-│   ├── README.md
-│   ├── recsys-challenge-2015.zip
-│   ├── rsc15
-│   │   ├── rsc15_test.txt
-│   │   ├── rsc15_train_full.txt
-│   │   ├── rsc15_train_tr.txt
-│   │   └── rsc15_train_valid.txt
-│   └── yoochoose-data
-│       ├── dataset-README.txt
-│       ├── yoochoose-buys.dat
-│       ├── yoochoose-clicks.dat
-│       └── yoochoose-test.dat
+│   ├── final
+│   │   ├── feats_bs512.txt
+│   │   ├── masks_bs512.txt
+│   │   └── targets_bs512.txt
+│   ├── README.md
+│   ├── recsys-challenge-2015.zip
+│   ├── rsc15
+│   │   ├── rsc15_test.txt
+│   │   ├── rsc15_train_full.txt
+│   │   ├── rsc15_train_tr.txt
+│   │   └── rsc15_train_valid.txt
+│   └── yoochoose-data
+│       ├── dataset-README.txt
+│       ├── yoochoose-buys.dat
+│       ├── yoochoose-clicks.dat
+│       └── yoochoose-test.dat
 ├── README.md
 ├── requirements.txt
 └── src
@@ -191,7 +191,7 @@ See instructions: https://www.tensorflow.org/lite/guide/ops_select
 
 关于模型转换相关的文档、以及已知的局限性，请参阅 https://www.tensorflow.org/lite/guide/ops_select 
 
-此时应在src文件夹下生成文件`saved_model.tflite`。项目目录结构如下。
+此时应在src文件夹下生成文件`saved_model.tflite`。项目 `src` 目录结构如下。
 
 ```
 src

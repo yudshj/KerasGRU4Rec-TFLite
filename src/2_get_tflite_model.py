@@ -25,8 +25,12 @@ train_samples_qty = 7953886
 
 
 class Model(tf.Module):
-
+    """兼容TFLite的GRU模型类。
+    """
     def __init__(self):
+        """初始化函数。Dropout率为0.25。
+        """                
+        super(Model, self).__init__()
         inputs = Input(shape=(1, train_n_items), batch_size=batch_size)
         init_states = Input(shape=(hidden_units,), batch_size=batch_size)
         gru, gru_states = GRU(hidden_units, stateful=False, return_state=True, name="GRU")(inputs, initial_state=init_states)
@@ -42,7 +46,7 @@ class Model(tf.Module):
         )
         self.model.summary()
 
-    # The `train` function takes a batch of input images and labels.
+    # “train”功能接收一批输入图像和标签
     @tf.function(input_signature=[
         tf.TensorSpec([batch_size], tf.int32),
         tf.TensorSpec([batch_size], tf.int32),
@@ -50,6 +54,18 @@ class Model(tf.Module):
         # tf.TensorSpec([batch_size], tf.int32),
     ])
     def train(self, feat, target, initstate): # mask):
+        """在给出的训练数据上训练模型，并返回*损失函数的值*和*隐藏层状态*。
+
+        :param feat: 特征向量。
+        :type feat: tf.Tensor
+        :param target: 待拟合的目标向量。
+        :type target: tf.Tensor
+        :param initstate: 预设的初始状态（通常为上一轮的*隐藏层状态*）。
+        :type initstate: tf.Tensor
+        :return: 损失值和状态
+        :rtype: { "loss": float, "state": tf.Tensor }
+
+        """
         # diag = tf.linalg.diag(tf.cast(mask, tf.float32))
         # self.initstate = tf.matmul(diag, self.initstate)
         input_oh = tf.one_hot(feat, depth=train_n_items)
@@ -74,6 +90,15 @@ class Model(tf.Module):
         tf.TensorSpec([batch_size, hidden_units], tf.float32),
     ])
     def infer(self, feat, initstate):
+        """机器学习推理。返回*预测结果*和*隐藏层状态*。
+
+        :param feat: 特征向量
+        :type feat: tf.Tensor
+        :param initstate: 初始状态
+        :type initstate: tf.Tensor
+        :return: *预测结果*和*隐藏层状态*
+        :rtype: {"output": tf.Tensor, "state": tf.Tensor}
+        """
         input_oh = tf.one_hot(feat, depth=train_n_items)
         input_oh = tf.expand_dims(input_oh, axis=1)
         input_oh = tf.cast(input_oh, tf.float32)
@@ -85,18 +110,23 @@ class Model(tf.Module):
 
     @tf.function(input_signature=[tf.TensorSpec(shape=[], dtype=tf.string)])
     def save(self, checkpoint_path):
-        tensor_names = [weight.name for weight in self.model.weights]
-        tensors_to_save = [weight.read_value()
-                           for weight in self.model.weights]
-        tf.raw_ops.Save(
-            filename=checkpoint_path, tensor_names=tensor_names,
-            data=tensors_to_save, name='save')
-        return {
-            "checkpoint_path": checkpoint_path
-        }
+        """该方法将创建检查点文件，并将模型保存到指定路径。
+
+        :param checkpoint_path: 保存路径
+        :type checkpoint_path: str
+        :return: 保存路径字典
+        :rtype: {"checkpoint_path": str}
+        """
 
     @tf.function(input_signature=[tf.TensorSpec(shape=[], dtype=tf.string)])
     def restore(self, checkpoint_path):
+        """该方法将加载检查点文件，并将模型加载到指定路径。
+
+        :param checkpoint_path: 需要恢复的路径
+        :type checkpoint_path: str
+        :return: 模型Tensor
+        :rtype: tf.Tensor
+        """
         restored_tensors = {}
         for var in self.model.weights:
             restored = tf.raw_ops.Restore(

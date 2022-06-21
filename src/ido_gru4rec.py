@@ -15,16 +15,28 @@ import IPython
 
 
 class SessionDataset:
-    """Credit to yhs-968/pyGRU4REC."""
+    """创建会话数据集加载实例
+    """
+
     def __init__(self, data, sep='\t', session_key='SessionId', item_key='ItemId', time_key='Time', n_samples=-1, itemmap=None, time_sort=False):
-        """
-        Args:
-            path: path of the csv file
-            sep: separator for the csv
-            session_key, item_key, time_key: name of the fields corresponding to the sessions, items, time
-            n_samples: the number of samples to use. If -1, use the whole dataset.
-            itemmap: mapping between item IDs and item indices
-            time_sort: whether to sort the sessions by time or not
+        """初始化SessionDataset
+
+        :param data: csv文件的路径
+        :type data: str
+        :param sep: csv分隔符，默认为 '\t'
+        :type sep: str, optional
+        :param session_key: 会话字段名称，默认为 'SessionId'
+        :type session_key: str, optional
+        :param item_key: 对象字段名称，默认为 'ItemId'
+        :type item_key: str, optional
+        :param time_key: 时间字段名称，默认为 'Time'
+        :type time_key: str, optional
+        :param n_samples: 使用样本数，-1表示使用完整数据集，默认为 -1
+        :type n_samples: int, optional
+        :param itemmap: 对象ID值和索引的映射关系，默认为 None
+        :type itemmap: _type_, optional
+        :param time_sort: 是否按时间排序会话，默认为 False
+        :type time_sort: bool, optional
         """
         self.df = data
         self.session_key = session_key
@@ -41,9 +53,10 @@ class SessionDataset:
         self.session_idx_arr = self.order_session_idx()
 
     def get_click_offsets(self):
-        """
-        Return the offsets of the beginning clicks of each session IDs,
-        where the offset is calculated against the first click of the first session ID.
+        """获得会话与第一个会话之间的偏移量
+
+        :return: 每个会话与第一个会话之间的偏移量
+        :rtype: numpy.ndarray
         """
         offsets = np.zeros(self.df[self.session_key].nunique() + 1, dtype=np.int32)
         # group & sort the df by session_key and get the offset values
@@ -52,7 +65,11 @@ class SessionDataset:
         return offsets
 
     def order_session_idx(self):
-        """ Order the session indices """
+        """将会话排序
+
+        :return: 将会话排序的索引数组
+        :rtype: numpy.ndarray
+        """
         if self.time_sort:
             # starting time for each sessions, sorted by session IDs
             sessions_start_time = self.df.groupby(self.session_key)[self.time_key].min().values
@@ -65,9 +82,9 @@ class SessionDataset:
 
     def add_item_indices(self, itemmap=None):
         """
-        Add item index column named "item_idx" to the df
-        Args:
-            itemmap (pd.DataFrame): mapping between the item Ids and indices
+        将对象索引列item_idx加入df中
+        
+        :param itemmap: 对象ID值和索引的映射关系
         """
         if itemmap is None:
             item_ids = self.df[self.item_key].unique()  # unique item ids
@@ -81,28 +98,32 @@ class SessionDataset:
 
     @property
     def items(self):
+        """去重
+
+        """  
         return self.itemmap.ItemId.unique()
 
 
 class SessionDataLoader:
-    """Credit to yhs-968/pyGRU4REC."""
+    """创建小切片的并行会话
+    """
+
     def __init__(self, dataset, batch_size=50):
-        """
-        A class for creating session-parallel mini-batches.
-        Args:
-            dataset (SessionDataset): the session dataset to generate the batches from
-            batch_size (int): size of the batch
+        """初始化
+
+        :param dataset: 生成切片的会话数据集
+        :param batch_size: 切片大小
+        :param done_sessions_counter: 已完成会话的个数
         """
         self.dataset = dataset
         self.batch_size = batch_size
         self.done_sessions_counter = 0
 
     def __iter__(self):
-        """ Returns the iterator for producing session-parallel training mini-batches.
-        Yields:
-            input (B,):  Item indices that will be encoded as one-hot vectors later.
-            target (B,): a Variable that stores the target item indices
-            masks: Numpy array indicating the positions of the sessions to be terminated
+        """迭代
+
+        :yield: 并行训练切片的迭代器，格式为： ``(inp, target, masks)`` 。其中， ``inp (B,)`` : 稍后将编码为一个热向量的项目索引；``target (B,)`` : 存储目标项索引的变量； ``masks`` : 指示要终止的会话位置的Numpy数组.
+        :rtype: Iterator[Tuple[np.ndarray, np.ndarray, np.ndarray]]
         """
 
         df = self.dataset.df
@@ -149,6 +170,11 @@ class SessionDataLoader:
 
 
 def create_model(args):
+    """!
+    创建模型
+
+    :param args: 命令行参数
+    """
     emb_size = 50
     hidden_units = 100
     size = emb_size
@@ -177,7 +203,21 @@ def create_model(args):
 
 
 def get_metrics(model, args, train_generator_map, recall_k=20, mrr_k=20):
+    """计算度量指标
 
+    :param model: 模型
+    :type model: tf.keras.models.Model
+    :param args: 参数
+    :type args: argparse.Namespace
+    :param train_generator_map: 训练生成器映射
+    :type train_generator_map: dict
+    :param recall_k: 召回率，默认为 20
+    :type recall_k: int, optional
+    :param mrr_k: 正确检索结果值在检索结果中的排名，默认为 20
+    :type mrr_k: int, optional
+    :return: 度量指标 ``(recall, recall_k), (mrr, mrr_k)``
+    :rtype: Tuple[float, float], Tuple[float, float]
+    """
     test_dataset = SessionDataset(args.test_data, itemmap=train_generator_map)
     test_generator = SessionDataLoader(test_dataset, batch_size=args.batch_size)
 
@@ -226,6 +266,13 @@ def get_metrics(model, args, train_generator_map, recall_k=20, mrr_k=20):
 
 
 def train_model(model, args):
+    """训练模型
+
+    :param model: 模型
+    :type model: tf.keras.models.Model
+    :param args: 参数
+    :type args: argparse.Namespace
+    """
     train_dataset = SessionDataset(args.train_data)
     model_to_train = model
     batch_size = args.batch_size
