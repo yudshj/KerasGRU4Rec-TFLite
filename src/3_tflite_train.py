@@ -25,7 +25,7 @@ if __name__ == '__main__':
     assert feats.shape[0] == targets.shape[0] == masks.shape[0]
 
     with open(TFLITE_MODEL_PATH, 'rb') as f:
-        tflite_model = f.read()
+        tflite_model = gzip.decompress(f.read())
     print(len(tflite_model))
     interpreter = tf.lite.Interpreter(model_content=tflite_model)
     interpreter.allocate_tensors()
