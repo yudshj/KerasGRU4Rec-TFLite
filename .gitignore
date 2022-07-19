@@ -3,5 +3,6 @@ venv
 *.npy
 dataset/
 src/weights
+src/.weights
 .DS_Store
 __pycache__

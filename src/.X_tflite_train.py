@@ -32,8 +32,8 @@ if __name__ == '__main__':
 
     train = interpreter.get_signature_runner("train")
     infer = interpreter.get_signature_runner("infer")
-    save = interpreter.get_signature_runner("save")
-    restore = interpreter.get_signature_runner("restore")
+    # save = interpreter.get_signature_runner("save")
+    # restore = interpreter.get_signature_runner("restore")
 
     last_state = tf.zeros((BATCH_SIZE, HIDDEN_UNITS), dtype=tf.float32)
 

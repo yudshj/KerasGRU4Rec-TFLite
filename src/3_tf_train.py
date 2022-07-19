@@ -1,5 +1,6 @@
 import argparse
 import shutil
+import gzip
 
 import IPython
 import numpy as np
@@ -11,11 +12,6 @@ from tensorflow.keras.layers import GRU, Dense, Dropout, Input
 from tensorflow.keras.utils import to_categorical
 from tqdm import tqdm
 
-emb_size = 50
-hidden_units = 100
-size = emb_size
-batch_size = 512
-train_n_items = 37484
 
 # consts from rsc15 dataset
 # (46138, 512)
@@ -24,11 +20,11 @@ test_samples_qty = 15325
 train_samples_qty = 7953886
 
 emb_size = 50
-hidden_units = 84
+hidden_units = 32
 size = emb_size
 batch_size = 512
 train_n_items = 37484
-epochs = 100
+epochs = 3
 
 
 class Model(tf.Module):
@@ -159,13 +155,13 @@ if __name__ == '__main__':
 
     assert feats.shape[0] == targets.shape[0] == masks.shape[0]
 
-
+    ZERO = tf.zeros((batch_size, hidden_units), dtype=tf.float32)
     for epoch in range(epochs):
         last_state = tf.zeros((batch_size, hidden_units), dtype=tf.float32)
         with tqdm(total=total_num) as pbar:
             for i, (feat, mask, target) in enumerate(zip(feats, masks, targets)):
                 if i % 5000 == 0:
-                    result = m.eval(feat, target, last_state, top_k=20)
+                    result = m.eval(feat, target, ZERO, top_k=20)
                     result = {k: v.numpy() for k, v in result.items() if k != "state"}
                     print(f"[ {epoch} epochs, {i} steps ] {result}")
 
@@ -182,6 +178,40 @@ if __name__ == '__main__':
 
                 pbar.set_description(f'Epoch: {i} Loss: {loss:.5f}')
                 pbar.update()
-        m.model.save_weights(f'weights/{epoch:03d}.h5')
+        m.model.save_weights(f'weights/{hidden_units}-{epoch:03d}.h5')
         last_state = tf.zeros((batch_size, hidden_units), dtype=tf.float32)
 
+    ####### convert SavedModel to TF Lite #########
+    SAVED_MODEL_DIR = "saved_model"
+    try:
+        tf.saved_model.save(
+            m,
+            SAVED_MODEL_DIR,
+            signatures={
+                'train':
+                    m.train.get_concrete_function(),
+                'infer':
+                    m.infer.get_concrete_function(),
+                # 'save':
+                #     m.save.get_concrete_function(),
+                # 'restore':
+                #     m.restore.get_concrete_function(),
+                'eval':
+                    m.eval.get_concrete_function(),
+            })
+    except Exception as e:
+        print(e)
+        IPython.embed()
+
+    # Convert the model
+    converter = tf.lite.TFLiteConverter.from_saved_model(SAVED_MODEL_DIR)
+    converter.target_spec.supported_ops = [
+        tf.lite.OpsSet.TFLITE_BUILTINS,  # enable TensorFlow Lite ops.
+        tf.lite.OpsSet.SELECT_TF_OPS     # enable TensorFlow ops.
+    ]
+    converter.experimental_enable_resource_variables = True
+    tflite_model = converter.convert()
+    tflite_model_gzip = gzip.compress(tflite_model)
+    with open("saved_model.tflite", "wb") as f:
+        f.write(tflite_model_gzip)
+    shutil.rmtree(SAVED_MODEL_DIR)

@@ -12,7 +12,7 @@ from tensorflow.keras.layers import Input, Dense, Dropout, GRU
 import shutil
 
 emb_size = 50
-hidden_units = 84
+hidden_units = 40
 size = emb_size
 batch_size = 512
 train_n_items = 37484
